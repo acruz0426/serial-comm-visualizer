@@ -49,8 +49,9 @@ bool UARTSet = false;
 bool CANSet = false;
 bool SPISet = false;
 bool changeSign = false;
-bool send = true;
+bool send = false;
 bool receive = false;
+bool buttonPress = false;
 
 int main(int argc, char *argv[])
 {
@@ -101,7 +102,8 @@ fprintf(stdout, "Initialization complete.\n");
     uint32_t startTime = SDL_GetTicks(); // Get starting time
     //std::vector<int> buf = {1};
     //wire2->getWave()->setBuffer(buf);
-    int val = 2;
+    int delayCounter = 0;
+    int prevEdge = 2;
     while(!quit)
     {
         //Button *uartButton = new Button();
@@ -241,7 +243,23 @@ fprintf(stdout, "Initialization complete.\n");
             if (elapsedTime > 100)
             {
                 if (serialComm->moveWaves(elapsedTime, changeSign) == 0)
-                   changeSign = false; 
+                {
+                    
+                    if (send && buttonPress && prevEdge == 1)
+                    {
+                        prevEdge = 2;
+                        buttonPress = false;
+                        serialComm->sendData();
+                    }
+                    else if (receive && buttonPress && serialComm->getEdge(2).y == 0)
+                    {
+                        buttonPress = false;
+                        serialComm->receiveData();
+                    }
+                    if (serialComm->getEdge(2).y == 1)
+                        prevEdge = 1;
+                    changeSign = false;
+                }
                 //val = wire2->getWave()->moveWave(elapsedTime, 10.0f, true);
                 /*if (val == 0)
                     std::cout << "Rising edge" << std::endl;
@@ -427,7 +445,29 @@ fprintf(stdout, "Initialization complete.\n");
             if (elapsedTime > 100)
             {
                 if (serialComm->moveWaves(elapsedTime, changeSign) == 0)
+                {
+                    if ((send && buttonPress && (serialComm->getEdge(2).y == 0)) || (delayCounter > 0))
+                    {
+                        if (delayCounter == 2)
+                        {
+                            delayCounter = 0;
+                            serialComm->sendData();
+                        }
+                        delayCounter += 1;
+                    }
+                    else if ((receive && buttonPress && (serialComm->getEdge(2).y == 0)) || (delayCounter > 0))
+                    {
+                        if (delayCounter == 2)
+                        {
+                            delayCounter = 0;
+                            serialComm->receiveData();
+                        }
+                        delayCounter += 1;
+                    }
+                    buttonPress = false;
                     changeSign = false;
+                }
+
                 //val = wire2->getWave()->moveWave(elapsedTime, 10.0f, true);
                 /*if (val == 0)
                     std::cout << "Rising edge" << std::endl;
@@ -568,20 +608,30 @@ void toMainMenu()
     inSPI = false;
     inCAN = false;
     inUART = false;
+    I2CSet = false;
+    UARTSet = false;
+    CANSet = false;
+    SPISet = false;
+    send = false;
+    receive = false;
+    buttonPress = false;
 }
 
 void testSend()
 {
-    send = true;
-    if (receive && (SC->getType() == 0 || SC->getType() == 3))
+    if (!buttonPress && receive && (SC->getType() == 0 || SC->getType() == 3))
         changeSign = true;
     receive = false;
+    send = true;
+    buttonPress = true;
+    std::cout << "Button Press" << std::endl;
 }
 
 void testReceive()
 {
-    receive = true;
-    if (send && (SC->getType() == 0 || SC->getType() == 3))
-        changeSign = false;
+    if (!buttonPress && ((!send && !receive) || (send && (SC->getType() == 0 || SC->getType() == 3))))
+        changeSign = true;
     send = false;
+    receive = true;
+    buttonPress = true;
 }
