@@ -31,6 +31,7 @@ void renderSPI();
 void toMainMenu();
 void testSend();
 void testReceive();
+void pauseFunc();
 
 //////////////////////
 // Global Variables //
@@ -52,6 +53,7 @@ bool changeSign = false;
 bool send = false;
 bool receive = false;
 bool buttonPress = false;
+bool pause = false;
 
 int main(int argc, char *argv[])
 {
@@ -67,6 +69,7 @@ int main(int argc, char *argv[])
     bool backCollide = false;
     bool sendCollide = false;
     bool receiveCollide = false;
+    bool pauseCollide = false;
     if (!init())
     {
         fprintf(stderr, "Failure to initialize.\n");
@@ -86,6 +89,7 @@ int main(int argc, char *argv[])
     Button *backButton = new Button(renderer, 20, 20, BUTTON_WIDTH, BUTTON_HEIGHT, "Back", font, toMainMenu);
     Button *sendData = new Button(renderer, WIDTH/2-BUTTON_WIDTH-20, 20, BUTTON_WIDTH, BUTTON_HEIGHT, "Send", font, testSend);
     Button *receiveData = new Button(renderer, WIDTH/2+20, 20, BUTTON_WIDTH, BUTTON_HEIGHT, "Receive", font, testReceive);
+    Button *pauseButton = new Button(renderer, WIDTH - 20 - BUTTON_WIDTH, 20, BUTTON_WIDTH, BUTTON_HEIGHT, "Pause", font, pauseFunc);
     /*
     Device *device1 = new Device(renderer, WIDTH/2 - DEVICE_WIDTH/2 - 200, HEIGHT/2 - DEVICE_HEIGHT/2, DEVICE_WIDTH, DEVICE_HEIGHT, font, 0);
     Device *device2 = new Device(renderer, WIDTH/2 - DEVICE_WIDTH/2 + 200, HEIGHT/2 - DEVICE_HEIGHT/2, DEVICE_WIDTH, DEVICE_HEIGHT, font, 0);
@@ -212,6 +216,7 @@ fprintf(stdout, "Initialization complete.\n");
                 {
                     backButton->onClick();
                     mouseClick = false;
+                    pause = false;
                 }
             }
             else if (sendData->isColliding(mouseX, mouseY))
@@ -232,49 +237,61 @@ fprintf(stdout, "Initialization complete.\n");
                     mouseClick = false;
                 }
             }
+            else if (pauseButton->isColliding(mouseX, mouseY))
+            {
+                pauseCollide = true;
+                if (mouseClick)
+                {
+                    pauseButton->onClick();
+                    mouseClick = false;
+                }
+            }
 
             // render all the objects in i2c
             serialComm->render();
             backButton->render(backCollide);
             sendData->render(sendCollide);
             receiveData->render(receiveCollide);
+            pauseButton->render(pauseCollide);
             if (elapsedTime > 100)
             {
-                if (serialComm->moveWaves(elapsedTime, changeSign) == 0)
+                if (!pause)
                 {
-                    // Sending out data
-                    if (send && buttonPress && serialComm->getEdge(2).y == 1)
+                    if (serialComm->moveWaves(elapsedTime, changeSign) == 0)
                     {
-                        //prevEdge = 2;
-                        buttonPress = false;
-                        serialComm->sendData();
-                    }
-                    else if (receive && buttonPress && serialComm->getEdge(2).x == 1)
-                    {
-                        buttonPress = false;
-                        serialComm->receiveData();
-                    }
-                    
-                    // Reading in data
-                    if (serialComm->getEdge(2).x == 1 && send) // Read data going right
-                    {
-                        serialComm->pushBack(1, serialComm->readData(1).y);
-
-                    }
-                    else if (serialComm->getEdge(2).y == 1 && receive)
-                    {
-                        serialComm->pushBack(1, serialComm->readData(1).x);
-                    }
-                    if (serialComm->getRxBuf(1)->size() == 8)
-                    {
-                        for (auto it = serialComm->getRxBuf(1)->begin(); it != serialComm->getRxBuf(1)->end(); it++)
+                        // Sending out data
+                        if (send && buttonPress/* && serialComm->getEdge(2).y == 1*/)
                         {
-                            std::cout << *it;
+                            //prevEdge = 2;
+                            buttonPress = false;
+                            serialComm->sendData();
                         }
-                        std::cout << std::endl;
-                        serialComm->getRxBuf(1)->clear();
+                        else if (receive && buttonPress && serialComm->getEdge(2).x == 1)
+                        {
+                            buttonPress = false;
+                            serialComm->receiveData();
+                        }
+                    
+                        // Reading in data
+                        if (serialComm->getEdge(2).x == 1 && send) // Read data going right
+                        {
+                            serialComm->pushBack(1, serialComm->readData(1).y);
+                        }
+                        else if (serialComm->getEdge(2).y == 1 && receive)
+                        {
+                            serialComm->pushBack(1, serialComm->readData(1).x);
+                        }
+                        if (serialComm->getRxBuf(1)->size() == 8)
+                        {
+                            for (auto it = serialComm->getRxBuf(1)->begin(); it != serialComm->getRxBuf(1)->end(); it++)
+                            {
+                                std::cout << *it;
+                            }
+                            std::cout << std::endl;
+                            serialComm->getRxBuf(1)->clear();
+                        }
+                        changeSign = false;
                     }
-                    changeSign = false;
                 }
                 //val = wire2->getWave()->moveWave(elapsedTime, 10.0f, true);
                 /*if (val == 0)
@@ -290,6 +307,7 @@ fprintf(stdout, "Initialization complete.\n");
             backCollide = false;
             sendCollide = false;
             receiveCollide = false;
+            pauseCollide = false;
         }
         else if (inUART)
         {
@@ -308,6 +326,7 @@ fprintf(stdout, "Initialization complete.\n");
                 {
                     backButton->onClick();
                     mouseClick = false;
+                    pause = false;
                 }
             }
             else if (sendData->isColliding(mouseX, mouseY))
@@ -328,27 +347,40 @@ fprintf(stdout, "Initialization complete.\n");
                     mouseClick = false;
                 }
             }
+            else if (pauseButton->isColliding(mouseX, mouseY))
+            {
+                pauseCollide = true;
+                if (mouseClick)
+                {
+                    pauseButton->onClick();
+                    mouseClick = false;
+                }
+            }
 
             // render all the objects in UART
             serialComm->render();
             backButton->render(backCollide);
             sendData->render(sendCollide);
             receiveData->render(receiveCollide);
+            pauseButton->render(pauseCollide);
             if (elapsedTime > 100)
             {
-                if(serialComm->moveWaves(elapsedTime, changeSign) == 0)
+                if (!pause)
                 {
-                    if (send && buttonPress)
+                    if(serialComm->moveWaves(elapsedTime, changeSign) == 0)
                     {
-                        buttonPress = false;
-                        serialComm->sendData();
+                        if (send && buttonPress)
+                        {
+                            buttonPress = false;
+                            serialComm->sendData();
+                        }
+                        else if (receive && buttonPress)
+                        {
+                            buttonPress = false;
+                            serialComm->receiveData();
+                        }
+                        changeSign = false;
                     }
-                    else if (receive && buttonPress)
-                    {
-                        buttonPress = false;
-                        serialComm->receiveData();
-                    }
-                    changeSign = false;
                 }
                 //val = wire2->getWave()->moveWave(elapsedTime, 10.0f, true);
                 /*if (val == 0)
@@ -364,6 +396,7 @@ fprintf(stdout, "Initialization complete.\n");
             backCollide = false;
             sendCollide = false;
             receiveCollide = false;
+            pauseCollide = false;
         }
         else if (inSPI)
         {
@@ -382,6 +415,7 @@ fprintf(stdout, "Initialization complete.\n");
                 {
                     backButton->onClick();
                     mouseClick = false;
+                    pause = false;
                 }
             }
             else if (sendData->isColliding(mouseX, mouseY))
@@ -402,32 +436,45 @@ fprintf(stdout, "Initialization complete.\n");
                     mouseClick = false;
                 }
             }
+            else if (pauseButton->isColliding(mouseX, mouseY))
+            {
+                pauseCollide = true;
+                if (mouseClick)
+                {
+                    pauseButton->onClick();
+                    mouseClick = false;
+                }
+            }
 
             // render all the objects in SPI
             serialComm->render();
             backButton->render(backCollide);
             sendData->render(sendCollide);
             receiveData->render(receiveCollide);
+            pauseButton->render(pauseCollide);
             if (elapsedTime > 100)
             {
-                if(serialComm->moveWaves(elapsedTime, changeSign) == 0)
+                if (!pause)
                 {
-                    // Sending out data
-                    if (send && buttonPress && serialComm->getEdge(1).y == 1)
+                    if(serialComm->moveWaves(elapsedTime, changeSign) == 0)
                     {
-                        //prevEdge = 2;
-                        buttonPress = false;
-                        serialComm->sendData();
-                    }
-                    else if (receive && buttonPress && serialComm->getEdge(1).x == 1)
-                    {
-                        buttonPress = false;
-                        serialComm->receiveData();
-                    }
+                        // Sending out data
+                        if (send && buttonPress && serialComm->getEdge(1).y == 1)
+                        {
+                            //prevEdge = 2;
+                            buttonPress = false;
+                            serialComm->sendData();
+                        }
+                        else if (receive && buttonPress && serialComm->getEdge(1).x == 1)
+                        {
+                            buttonPress = false;
+                            serialComm->receiveData();
+                        }
 
-                    // Reading in data
+                        // Reading in data
                     
-                    changeSign = false;
+                        changeSign = false;
+                    }
                 }
                 //val = wire2->getWave()->moveWave(elapsedTime, 10.0f, true);
                 /*if (val == 0)
@@ -443,6 +490,7 @@ fprintf(stdout, "Initialization complete.\n");
             backCollide = false;
             sendCollide = false;
             receiveCollide = false; 
+            pauseCollide = false;
         }
         else if (inCAN)
         {
@@ -461,6 +509,7 @@ fprintf(stdout, "Initialization complete.\n");
                 {
                     backButton->onClick();
                     mouseClick = false;
+                    pause = false;
                 }
             }
             else if (sendData->isColliding(mouseX, mouseY))
@@ -481,28 +530,41 @@ fprintf(stdout, "Initialization complete.\n");
                     mouseClick = false;
                 }
             }
+            else if (pauseButton->isColliding(mouseX, mouseY))
+            {
+                pauseCollide = true;
+                if (mouseClick)
+                {
+                    pauseButton->onClick();
+                    mouseClick = false;
+                }
+            }
 
             // render all the objects in CAN
             serialComm->render();
             backButton->render(backCollide);
             sendData->render(sendCollide);
             receiveData->render(receiveCollide);
+            pauseButton->render(pauseCollide);
             if (elapsedTime > 100)
             {
-                if (serialComm->moveWaves(elapsedTime, changeSign) == 0)
+                if (!pause)
                 {
-                    if (send && buttonPress)
+                    if (serialComm->moveWaves(elapsedTime, changeSign) == 0)
                     {
-                        //prevEdge = 2;
-                        buttonPress = false;
-                        serialComm->sendData();
+                        if (send && buttonPress)
+                        {
+                            //prevEdge = 2;
+                            buttonPress = false;
+                            serialComm->sendData();
+                        }
+                        else if (receive && buttonPress)
+                        {
+                            buttonPress = false;
+                            serialComm->receiveData();
+                        }
+                        changeSign = false;
                     }
-                    else if (receive && buttonPress)
-                    {
-                        buttonPress = false;
-                        serialComm->receiveData();
-                    }
-                    changeSign = false;
                 }
 
                 //val = wire2->getWave()->moveWave(elapsedTime, 10.0f, true);
@@ -519,6 +581,7 @@ fprintf(stdout, "Initialization complete.\n");
             backCollide = false;
             sendCollide = false;
             receiveCollide = false;
+            pauseCollide = false;
         }
 
         SDL_RenderPresent(renderer);
@@ -671,4 +734,9 @@ void testReceive()
     send = false;
     receive = true;
     buttonPress = true;
+}
+
+void pauseFunc()
+{
+    pause = !pause;
 }

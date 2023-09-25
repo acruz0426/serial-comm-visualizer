@@ -310,11 +310,11 @@ void SerialComm::setType(int type)
             m_device2->getPorts()[2]->setName("SCL"); 
             m_device1->getPorts()[7]->setName("");
             m_device2->getPorts()[3]->setName("");
-            m_wire1->setWire(m_device1->getPorts()[5]->getPort(), m_device2->getPorts()[1]->getPort(), false);
+            m_wire1->setWire(m_device1->getPorts()[5]->getPort(), m_device2->getPorts()[1]->getPort(), true);
             m_wire2->setWire(m_device1->getPorts()[6]->getPort(), m_device2->getPorts()[2]->getPort(), true);
             m_sign = 1;
             m_buf1.clear();
-            m_buf2 = {1};
+            m_buf2.clear();
             m_buf3.clear();
             m_buf4.clear();
             break;
@@ -420,8 +420,8 @@ int SerialComm::moveWaves(uint32_t elapsedTime, bool changeSign)
                     //m_sign *= -1;
             }
             
-            m_edge2 = m_wire2->getWave()->moveWave(elapsedTime, SPEED, true, true); // is clk signal, and starts high
-            m_edge1 = m_wire1->getWave()->moveWave(elapsedTime, m_sign*SPEED, false, false);
+            m_edge2 = m_wire2->getWave()->moveWave(elapsedTime, SPEED, false, true); // is clk signal, and starts high
+            m_edge1 = m_wire1->getWave()->moveWave(elapsedTime, m_sign*SPEED, false, true);
             break;
         case 1: // UART
             m_edge1 = m_wire1->getWave()->moveWave(elapsedTime, SPEED, false, false);
@@ -475,7 +475,8 @@ void SerialComm::sendData()
     switch(m_type)
     {
         case 0:
-            m_buf1 = {1, 1};
+            m_buf1 = {0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0};
+            m_buf2 = {0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0};
             break;
         case 1:
             m_buf1 = {1};
