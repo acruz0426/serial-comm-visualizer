@@ -51,7 +51,7 @@ class Wire {
         Wire(SDL_Renderer *renderer, int x1, int y1, int x2, int y2);
         ~Wire();
         void render();
-        void setWire(SDL_Point port1, SDL_Point port2);
+        void setWire(SDL_Point port1, SDL_Point port2, bool isHigh);
         Wave* getWave();
     private:
         SDL_Renderer *m_renderer;
@@ -70,6 +70,7 @@ class Port {
         void render();
         SDL_Point getPort();
         void setName(const std::string name);
+        std::vector<int>* getBuffer();
     private:
         SDL_Color m_color;
         SDL_Renderer *m_renderer;
@@ -81,6 +82,7 @@ class Port {
         int m_out_y;
         bool m_isLeft;
         std::string m_name;
+        std::vector<int> m_receive_buffer;
 
 };
 

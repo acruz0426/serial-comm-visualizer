@@ -14,11 +14,13 @@ class Wave {
     public:
         Wave(SDL_Renderer *renderer, int start_x, int start_y, int end_x, int height);
         void render();
-        SDL_Point moveWave(uint32_t elapsedTime, float speed, bool isCLK);
+        SDL_Point moveWave(uint32_t elapsedTime, float speed, bool isCLK, bool isHigh);
         void setBuffer(std::vector<int> *buf);
-        void setWave(int x1, int y1, int x2);
+        void setWave(int x1, int y1, int x2, bool isHigh);
         std::vector<SDL_Point>* getPoints();
         int getY();
+        int getHigh();
+        int getLow();
     private:
         SDL_Renderer *m_renderer;
         std::vector<int> *m_buffer;
@@ -40,6 +42,9 @@ class SerialComm {
         void sendData();
         void receiveData();
         SDL_Point getEdge(int edge);
+        void pushBack(int buf, int val);
+        std::vector<int>* getRxBuf(int buf);
+        SDL_Point readData(int wire);
     private:
         SDL_Renderer *m_renderer;
         TTF_Font *m_font;
@@ -59,5 +64,9 @@ class SerialComm {
         std::vector<int> m_buf2;
         std::vector<int> m_buf3;
         std::vector<int> m_buf4;
+        std::vector<int> m_rx_buf1;
+        std::vector<int> m_rx_buf2;
+        std::vector<int> m_rx_buf3;
+        std::vector<int> m_rx_buf4;
 };
 #endif

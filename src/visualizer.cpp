@@ -271,6 +271,11 @@ void Port::setName(const std::string name)
 {
     m_name = name;
 }
+
+std::vector<int>* Port::getBuffer()
+{
+    return &m_receive_buffer;
+}
 /*
 void Port::setSignal(Wave* signal)
 {
@@ -324,13 +329,13 @@ void Wire::render()
     m_signal->render(); // Set speed variable
 }
 
-void Wire::setWire(SDL_Point port1, SDL_Point port2)
+void Wire::setWire(SDL_Point port1, SDL_Point port2, bool isHigh)
 {
     m_x1 = port1.x;
     m_y1 = port1.y;
     m_x2 = port2.x;
     m_y2 = port2.y;
-    m_signal->setWave(port1.x, port1.y-5, port2.x);
+    m_signal->setWave(port1.x, port1.y-5, port2.x, isHigh);
     //std::cout << port1.x << " " << port1.y << std::endl;
 }
 

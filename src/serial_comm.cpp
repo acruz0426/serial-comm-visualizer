@@ -30,7 +30,7 @@ void Wave::render()
 }
 
 // Don't forget to set the startTime to currentTime after this function call
-SDL_Point Wave::moveWave(uint32_t elapsedTime, float speed, bool isCLK)
+SDL_Point Wave::moveWave(uint32_t elapsedTime, float speed, bool isCLK, bool isHigh)
 {
     //std::cout << "moveWave called" << std::endl;
     float deltaTime = static_cast<float>(elapsedTime) / 1000.0f;
@@ -65,12 +65,13 @@ SDL_Point Wave::moveWave(uint32_t elapsedTime, float speed, bool isCLK)
             else if (it->x <= m_start_point.x && speed < 0)
             {
                 if (edge == -1)
-                    edge = (it->y - (it+1)->y < 0) ? 1 : 0;
+                    edge = ((it+1)->y - it->y) < 0 ? 0 : 1;
                 it = m_points.erase(it);
             }
             else
                 ++it;
         }
+        
         //std::cout << m_points.begin()->x << " " << (m_points.begin()->x >= m_start_point.x) << std::endl;
         //std::cout << (speed > 0) << std::endl;
         if ((m_points.begin()->x >= m_start_point.x + 5) && (speed > 0)) // After 5 pixels more or less
@@ -84,7 +85,7 @@ SDL_Point Wave::moveWave(uint32_t elapsedTime, float speed, bool isCLK)
                     if (m_points.begin()->y == m_start_point.y)
                     {
                         //std::cout << "Inside right place" << std::endl;
-                        auto it = m_points.insert(m_points.begin(), {m_start_point.x, m_start_point.y});
+                        m_points.insert(m_points.begin(), {m_start_point.x, m_start_point.y});
                         m_points.insert(m_points.begin(), {m_start_point.x, m_start_point.y-m_height});
                         edge2 = 0;
                     } 
@@ -114,16 +115,31 @@ SDL_Point Wave::moveWave(uint32_t elapsedTime, float speed, bool isCLK)
             // If there is nothing in the buffer
             else
             {
-                //std::cout << "Buffer is empty" << std::endl;
-                if (m_points.begin()->y == m_start_point.y-m_height)
+                if (isHigh)
                 {
-                    m_points.insert(m_points.begin(), {m_start_point.x, m_start_point.y-m_height});
-                    m_points.insert(m_points.begin(), {m_start_point.x, m_start_point.y});
-                    edge2 = 1;
+                    // check if low, create transition to high
+                    if (m_points.begin()->y == m_start_point.y)
+                    {
+                        m_points.insert(m_points.begin(), {m_start_point.x, m_start_point.y});
+                        m_points.insert(m_points.begin(), {m_start_point.x, m_start_point.y-m_height});
+                        edge2 = 0;
+                    }
+                    else
+                        m_points.insert(m_points.begin(), {m_start_point.x, m_start_point.y-m_height});
                 }
-
                 else
-                    m_points.insert(m_points.begin(), {m_start_point.x, m_start_point.y});
+                {
+                    //std::cout << "Buffer is empty" << std::endl;
+                    if (m_points.begin()->y == m_start_point.y-m_height)
+                    {
+                        m_points.insert(m_points.begin(), {m_start_point.x, m_start_point.y-m_height});
+                        m_points.insert(m_points.begin(), {m_start_point.x, m_start_point.y});
+                        edge2 = 1;
+                    }
+
+                    else
+                        m_points.insert(m_points.begin(), {m_start_point.x, m_start_point.y});
+                }
             }
         }
         else if (((m_points.end()-1)->x <= m_end_x - 5) && (speed < 0))
@@ -160,16 +176,31 @@ SDL_Point Wave::moveWave(uint32_t elapsedTime, float speed, bool isCLK)
                     m_buffer->insert(m_buffer->begin(), !m_buffer->back());
                 m_buffer->pop_back();
             }
+            // Empty Buffer
             else
             {
-// Work on transistion from 1 to zero with empty buffer. check visual.
-                if (m_points.end()->y == m_start_point.y-m_height)
+                if (isHigh)
                 {
-                    m_points.insert(m_points.end(), {m_end_x, m_start_point.y-m_height});
-                    m_points.insert(m_points.end(), {m_end_x, m_start_point.y});
-                    edge2 = 1;
-                } else {
-                    m_points.insert(m_points.end(), {m_end_x, m_start_point.y});
+                    // check if low, create transition to high
+                    if (m_points.end()->y == m_start_point.y)
+                    {
+                        m_points.insert(m_points.end(), {m_end_x, m_start_point.y});
+                        m_points.insert(m_points.end(), {m_end_x, m_start_point.y-m_height});
+                        edge2 = 0;
+                    }
+                    else
+                        m_points.insert(m_points.end(), {m_end_x, m_start_point.y-m_height});
+                }
+                else
+                {
+                    if (m_points.end()->y == m_start_point.y-m_height)
+                    {
+                        m_points.insert(m_points.end(), {m_end_x, m_start_point.y-m_height});
+                        m_points.insert(m_points.end(), {m_end_x, m_start_point.y});
+                        edge2 = 1;
+                    } 
+                    else 
+                        m_points.insert(m_points.end(), {m_end_x, m_start_point.y});
                 }
             }
 
@@ -186,23 +217,45 @@ void Wave::setBuffer(std::vector<int> *buf)
     //std::cout << "setBuffer called" << std::endl;
 }
 
-void Wave::setWave(int x1, int y1, int x2)
+void Wave::setWave(int x1, int y1, int x2, bool isHigh)
 {
     m_start_point.x = x1;
     m_start_point.y = y1;
     m_end_x = x2;
     m_points.clear();
-    m_points.push_back(m_start_point);
-    //m_points.push_back({(m_start_point.x+m_end_x)/2, m_start_point.y});
-    m_points.push_back({m_end_x, m_start_point.y});
+    if (isHigh)
+    {
+        m_points.push_back({x1, y1-m_height});
+        m_points.push_back({m_end_x, y1-m_height});
+    }
+    else
+    {
+        m_points.push_back(m_start_point);
+        m_points.push_back({m_end_x, m_start_point.y});
+    }
 }
 
 std::vector<SDL_Point>* Wave::getPoints()
 {
     return &m_points;
 }
-
+/*
+void Wave::setPoints(std::vector<SDL_Point> points)
+{
+    m_points = points;
+}
+*/
 int Wave::getY()
+{
+    return m_start_point.y;
+}
+
+int Wave::getHigh()
+{
+    return m_start_point.y-m_height;
+}
+
+int Wave::getLow()
 {
     return m_start_point.y;
 }
@@ -240,6 +293,10 @@ SerialComm::~SerialComm()
 void SerialComm::setType(int type)
 {
     m_type = type;
+    m_rx_buf1.clear();
+    m_rx_buf2.clear();
+    m_rx_buf3.clear();
+    m_rx_buf4.clear();
     switch (type)
     {
         case 0: // I2C
@@ -253,8 +310,8 @@ void SerialComm::setType(int type)
             m_device2->getPorts()[2]->setName("SCL"); 
             m_device1->getPorts()[7]->setName("");
             m_device2->getPorts()[3]->setName("");
-            m_wire1->setWire(m_device1->getPorts()[5]->getPort(), m_device2->getPorts()[1]->getPort());
-            m_wire2->setWire(m_device1->getPorts()[6]->getPort(), m_device2->getPorts()[2]->getPort());
+            m_wire1->setWire(m_device1->getPorts()[5]->getPort(), m_device2->getPorts()[1]->getPort(), false);
+            m_wire2->setWire(m_device1->getPorts()[6]->getPort(), m_device2->getPorts()[2]->getPort(), true);
             m_sign = 1;
             m_buf1.clear();
             m_buf2 = {1};
@@ -272,8 +329,8 @@ void SerialComm::setType(int type)
             m_device2->getPorts()[2]->setName("TX"); 
             m_device1->getPorts()[7]->setName("");
             m_device2->getPorts()[3]->setName("");
-            m_wire1->setWire(m_device1->getPorts()[5]->getPort(), m_device2->getPorts()[1]->getPort());
-            m_wire2->setWire(m_device1->getPorts()[6]->getPort(), m_device2->getPorts()[2]->getPort());
+            m_wire1->setWire(m_device1->getPorts()[5]->getPort(), m_device2->getPorts()[1]->getPort(), false);
+            m_wire2->setWire(m_device1->getPorts()[6]->getPort(), m_device2->getPorts()[2]->getPort(), false);
             m_sign = 1;
             m_buf1.clear();
             m_buf2.clear();
@@ -291,10 +348,10 @@ void SerialComm::setType(int type)
             m_device2->getPorts()[2]->setName("MISO");
             m_device1->getPorts()[7]->setName("CS");
             m_device2->getPorts()[3]->setName("CS");
-            m_wire1->setWire(m_device1->getPorts()[4]->getPort(), m_device2->getPorts()[0]->getPort());
-            m_wire2->setWire(m_device1->getPorts()[5]->getPort(), m_device2->getPorts()[1]->getPort()); 
-            m_wire3->setWire(m_device1->getPorts()[6]->getPort(), m_device2->getPorts()[2]->getPort());
-            m_wire4->setWire(m_device1->getPorts()[7]->getPort(), m_device2->getPorts()[3]->getPort());
+            m_wire1->setWire(m_device1->getPorts()[4]->getPort(), m_device2->getPorts()[0]->getPort(), false);
+            m_wire2->setWire(m_device1->getPorts()[5]->getPort(), m_device2->getPorts()[1]->getPort(), false); 
+            m_wire3->setWire(m_device1->getPorts()[6]->getPort(), m_device2->getPorts()[2]->getPort(), false);
+            m_wire4->setWire(m_device1->getPorts()[7]->getPort(), m_device2->getPorts()[3]->getPort(), false);
             m_sign = 1;
             m_buf1 = {1};
             m_buf2.clear();
@@ -312,8 +369,8 @@ void SerialComm::setType(int type)
             m_device2->getPorts()[2]->setName("CL"); 
             m_device1->getPorts()[7]->setName("");
             m_device2->getPorts()[3]->setName("");
-            m_wire1->setWire(m_device1->getPorts()[5]->getPort(), m_device2->getPorts()[1]->getPort());
-            m_wire2->setWire(m_device1->getPorts()[6]->getPort(), m_device2->getPorts()[2]->getPort());
+            m_wire1->setWire(m_device1->getPorts()[5]->getPort(), m_device2->getPorts()[1]->getPort(), true);
+            m_wire2->setWire(m_device1->getPorts()[6]->getPort(), m_device2->getPorts()[2]->getPort(), false);
             m_sign = 1;
             m_buf1.clear();
             m_buf2.clear();
@@ -359,22 +416,22 @@ int SerialComm::moveWaves(uint32_t elapsedTime, bool changeSign)
                     if (it->y != m_wire1->getWave()->getY())
                         code = -1;
                 }
-                if (code == 0)
-                    m_sign *= -1;
+                //if (code == 0)
+                    //m_sign *= -1;
             }
             
-            m_edge2 = m_wire2->getWave()->moveWave(elapsedTime, SPEED, true); // is clk signal
-            m_edge1 = m_wire1->getWave()->moveWave(elapsedTime, m_sign*SPEED, false);
+            m_edge2 = m_wire2->getWave()->moveWave(elapsedTime, SPEED, true, true); // is clk signal, and starts high
+            m_edge1 = m_wire1->getWave()->moveWave(elapsedTime, m_sign*SPEED, false, false);
             break;
         case 1: // UART
-            m_edge1 = m_wire1->getWave()->moveWave(elapsedTime, SPEED, false);
-            m_edge2 = m_wire2->getWave()->moveWave(elapsedTime, -SPEED, false);
+            m_edge1 = m_wire1->getWave()->moveWave(elapsedTime, SPEED, false, false);
+            m_edge2 = m_wire2->getWave()->moveWave(elapsedTime, -SPEED, false, false);
             break;
         case 2: // SPI
-            m_edge1 = m_wire1->getWave()->moveWave(elapsedTime, SPEED, true); // is clk signal
-            m_edge2 = m_wire2->getWave()->moveWave(elapsedTime, SPEED, false);
-            m_edge3 = m_wire3->getWave()->moveWave(elapsedTime, -SPEED, false);
-            m_edge4 = m_wire4->getWave()->moveWave(elapsedTime, SPEED, false);
+            m_edge1 = m_wire1->getWave()->moveWave(elapsedTime, SPEED, true, false); // is clk signal
+            m_edge2 = m_wire2->getWave()->moveWave(elapsedTime, SPEED, false, false);
+            m_edge3 = m_wire3->getWave()->moveWave(elapsedTime, -SPEED, false, false);
+            m_edge4 = m_wire4->getWave()->moveWave(elapsedTime, SPEED, false, false);
             break;
         case 3: // CAN
             if (changeSign)   
@@ -384,14 +441,14 @@ int SerialComm::moveWaves(uint32_t elapsedTime, bool changeSign)
                     if (it->y != m_wire2->getWave()->getY())
                         code = -1;
                 }
-                if (code == 0)
-                    m_sign *= -1;
+                //if (code == 0)
+                    //m_sign *= -1;
             }
-            m_edge1 = m_wire1->getWave()->moveWave(elapsedTime, m_sign*SPEED, false);
-            m_edge2 = m_wire2->getWave()->moveWave(elapsedTime, m_sign*SPEED, false);
+            m_edge1 = m_wire1->getWave()->moveWave(elapsedTime, m_sign*SPEED, false, true); // starts in high position
+            m_edge2 = m_wire2->getWave()->moveWave(elapsedTime, m_sign*SPEED, false, false);
             break;
     }
-    std::cout << "{" << m_edge1.x << ", " << m_edge1.y << "} {" << m_edge2.x << ", " << m_edge2.y << "}" << std::endl;//<< m_edge2 << " " << m_edge3 << " " << m_edge4 << std::endl;
+    //std::cout << "{" << m_edge1.x << ", " << m_edge1.y << "} {" << m_edge2.x << ", " << m_edge2.y << "}" << std::endl;//<< m_edge2 << " " << m_edge3 << " " << m_edge4 << std::endl;
     return code;
 }
 
@@ -414,16 +471,17 @@ Wire* SerialComm::getWire(int wire)
 
 void SerialComm::sendData()
 {
+    m_sign = 1;
     switch(m_type)
     {
         case 0:
-            m_buf1 = {1};
+            m_buf1 = {1, 1};
             break;
         case 1:
             m_buf1 = {1};
             break;
         case 2:
-            m_buf2 = {1};
+            m_buf2 = {1, 1};
             break;
         case 3:
             m_buf1 = {0};
@@ -434,16 +492,17 @@ void SerialComm::sendData()
 
 void SerialComm::receiveData()
 {
+    m_sign = -1;
     switch(m_type)
     {
         case 0:
-            m_buf1 = {1};
+            m_buf1 = {1, 1};
             break;
         case 1:
             m_buf2 = {1};
             break;
         case 2:
-            m_buf3 = {1};
+            m_buf3 = {1, 1};
             break;
         case 3:
             m_buf1 = {0};
@@ -466,3 +525,145 @@ SDL_Point SerialComm::getEdge(int edge)
             return m_edge4;
     }
 }
+
+void SerialComm::pushBack(int buf, int val)
+{
+    switch (buf)
+    {
+        case 1:
+            m_rx_buf1.push_back(val);
+            break;
+        case 2:
+            m_rx_buf2.push_back(val);
+            break;
+        case 3:
+            m_rx_buf3.push_back(val);
+            break;
+        case 4:
+            m_rx_buf4.push_back(val);
+            break;
+    }
+}
+
+std::vector<int>* SerialComm::getRxBuf(int buf)
+{
+    switch (buf)
+    {
+        case 1:
+            return &m_rx_buf1;
+        case 2:
+            return &m_rx_buf2;
+        case 3:
+            return &m_rx_buf3;
+        case 4:
+            return &m_rx_buf4;
+    }
+}
+
+SDL_Point SerialComm::readData(int wire)
+{
+    std::vector<SDL_Point> *points;
+    Wave *wave;
+    int sent;
+    int received;
+    switch (wire)
+    {
+        case 1:
+            wave = m_wire1->getWave();
+            points = wave->getPoints();
+            if (points->back().y == wave->getHigh())
+                sent = 1;
+            else
+                sent = 0;
+            if (points->front().y == wave->getHigh())
+                received = 1;
+            else
+                received = 0;
+            break;
+        case 2:
+            wave = m_wire2->getWave();
+            points = wave->getPoints();
+            if (points->back().y == wave->getHigh())
+                sent = 1;
+            else
+                sent = 0;
+            if (points->front().y == wave->getHigh())
+                received = 1;
+            else
+                received = 0;
+            break;
+        case 3:
+            wave = m_wire3->getWave();
+            points = wave->getPoints();
+            if (points->back().y == wave->getHigh())
+                sent = 1;
+            else
+                sent = 0;
+            if (points->front().y == wave->getHigh())
+                received = 1;
+            else
+                received = 0;
+            break;
+        case 4:
+            wave = m_wire4->getWave();
+            points = wave->getPoints();
+            if (points->back().y == wave->getHigh())
+                sent = 1;
+            else
+                sent = 0;
+            if (points->front().y == wave->getHigh())
+                received = 1;
+            else
+                received = 0;
+            break;
+    }
+    return {received, sent};
+
+}
+/*
+SerialComm::createDataSignal(int wire, std::vector<SDL_Point> clk)
+{
+    // Get clk signal points
+    std::vector<SDL_Point> *pts;
+    SDL_Point start;
+    SDL_Point end;
+    SDL_Point prevPoint = {0, 0};
+    switch (wire)
+    {
+        case 1:
+            pts = m_wire1->getWave()->getPoints();
+            start = pts->front();
+            end = pts->back();
+            pts->erase(m_wire1->getWave()->getPoints()->begin());
+            pts->pop_back();
+            if (m_sign == 1) // Going to right so add at beginning of vector
+            {
+                for(auto it = pts->begin(); it != pts->end(); it++)
+                {
+                    if (prevPoint.y > it->y)
+                    {
+                        
+                    }
+                    prevPoint = *it;
+                }
+            }
+            else if (m_sign == -1) // Going left so add at end of vector
+            {
+                for (auto it = pts->end(); it != pts->begin(); it--)
+                {
+
+                }
+            }
+            pts->insert(pts->begin(), start);
+            pts->push_back(end);
+            break;
+        case 2:
+            break;
+        case 3:
+            break;
+        case 4:
+            break;
+    }
+}
+
+*/

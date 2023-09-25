@@ -102,8 +102,6 @@ fprintf(stdout, "Initialization complete.\n");
     uint32_t startTime = SDL_GetTicks(); // Get starting time
     //std::vector<int> buf = {1};
     //wire2->getWave()->setBuffer(buf);
-    int delayCounter = 0;
-    int prevEdge = 2;
     while(!quit)
     {
         //Button *uartButton = new Button();
@@ -244,20 +242,38 @@ fprintf(stdout, "Initialization complete.\n");
             {
                 if (serialComm->moveWaves(elapsedTime, changeSign) == 0)
                 {
-                    
-                    if (send && buttonPress && prevEdge == 1)
+                    // Sending out data
+                    if (send && buttonPress && serialComm->getEdge(2).y == 1)
                     {
-                        prevEdge = 2;
+                        //prevEdge = 2;
                         buttonPress = false;
                         serialComm->sendData();
                     }
-                    else if (receive && buttonPress && serialComm->getEdge(2).y == 0)
+                    else if (receive && buttonPress && serialComm->getEdge(2).x == 1)
                     {
                         buttonPress = false;
                         serialComm->receiveData();
                     }
-                    if (serialComm->getEdge(2).y == 1)
-                        prevEdge = 1;
+                    
+                    // Reading in data
+                    if (serialComm->getEdge(2).x == 1 && send) // Read data going right
+                    {
+                        serialComm->pushBack(1, serialComm->readData(1).y);
+
+                    }
+                    else if (serialComm->getEdge(2).y == 1 && receive)
+                    {
+                        serialComm->pushBack(1, serialComm->readData(1).x);
+                    }
+                    if (serialComm->getRxBuf(1)->size() == 8)
+                    {
+                        for (auto it = serialComm->getRxBuf(1)->begin(); it != serialComm->getRxBuf(1)->end(); it++)
+                        {
+                            std::cout << *it;
+                        }
+                        std::cout << std::endl;
+                        serialComm->getRxBuf(1)->clear();
+                    }
                     changeSign = false;
                 }
                 //val = wire2->getWave()->moveWave(elapsedTime, 10.0f, true);
@@ -313,7 +329,7 @@ fprintf(stdout, "Initialization complete.\n");
                 }
             }
 
-            // render all the objects in i2c
+            // render all the objects in UART
             serialComm->render();
             backButton->render(backCollide);
             sendData->render(sendCollide);
@@ -321,7 +337,19 @@ fprintf(stdout, "Initialization complete.\n");
             if (elapsedTime > 100)
             {
                 if(serialComm->moveWaves(elapsedTime, changeSign) == 0)
+                {
+                    if (send && buttonPress)
+                    {
+                        buttonPress = false;
+                        serialComm->sendData();
+                    }
+                    else if (receive && buttonPress)
+                    {
+                        buttonPress = false;
+                        serialComm->receiveData();
+                    }
                     changeSign = false;
+                }
                 //val = wire2->getWave()->moveWave(elapsedTime, 10.0f, true);
                 /*if (val == 0)
                     std::cout << "Rising edge" << std::endl;
@@ -375,7 +403,7 @@ fprintf(stdout, "Initialization complete.\n");
                 }
             }
 
-            // render all the objects in i2c
+            // render all the objects in SPI
             serialComm->render();
             backButton->render(backCollide);
             sendData->render(sendCollide);
@@ -383,7 +411,24 @@ fprintf(stdout, "Initialization complete.\n");
             if (elapsedTime > 100)
             {
                 if(serialComm->moveWaves(elapsedTime, changeSign) == 0)
+                {
+                    // Sending out data
+                    if (send && buttonPress && serialComm->getEdge(1).y == 1)
+                    {
+                        //prevEdge = 2;
+                        buttonPress = false;
+                        serialComm->sendData();
+                    }
+                    else if (receive && buttonPress && serialComm->getEdge(1).x == 1)
+                    {
+                        buttonPress = false;
+                        serialComm->receiveData();
+                    }
+
+                    // Reading in data
+                    
                     changeSign = false;
+                }
                 //val = wire2->getWave()->moveWave(elapsedTime, 10.0f, true);
                 /*if (val == 0)
                     std::cout << "Rising edge" << std::endl;
@@ -437,7 +482,7 @@ fprintf(stdout, "Initialization complete.\n");
                 }
             }
 
-            // render all the objects in i2c
+            // render all the objects in CAN
             serialComm->render();
             backButton->render(backCollide);
             sendData->render(sendCollide);
@@ -446,25 +491,17 @@ fprintf(stdout, "Initialization complete.\n");
             {
                 if (serialComm->moveWaves(elapsedTime, changeSign) == 0)
                 {
-                    if ((send && buttonPress && (serialComm->getEdge(2).y == 0)) || (delayCounter > 0))
+                    if (send && buttonPress)
                     {
-                        if (delayCounter == 2)
-                        {
-                            delayCounter = 0;
-                            serialComm->sendData();
-                        }
-                        delayCounter += 1;
+                        //prevEdge = 2;
+                        buttonPress = false;
+                        serialComm->sendData();
                     }
-                    else if ((receive && buttonPress && (serialComm->getEdge(2).y == 0)) || (delayCounter > 0))
+                    else if (receive && buttonPress)
                     {
-                        if (delayCounter == 2)
-                        {
-                            delayCounter = 0;
-                            serialComm->receiveData();
-                        }
-                        delayCounter += 1;
+                        buttonPress = false;
+                        serialComm->receiveData();
                     }
-                    buttonPress = false;
                     changeSign = false;
                 }
 
