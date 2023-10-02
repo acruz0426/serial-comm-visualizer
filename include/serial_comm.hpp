@@ -21,6 +21,7 @@ class Wave {
         int getY();
         int getHigh();
         int getLow();
+        bool isHigh();
     private:
         SDL_Renderer *m_renderer;
         std::vector<int> *m_buffer;
@@ -28,6 +29,7 @@ class Wave {
         SDL_Point m_start_point;
         int m_end_x;
         int m_height;
+        bool m_isHigh;
 };
 
 class SerialComm {
@@ -39,17 +41,27 @@ class SerialComm {
         void render();
         int moveWaves(uint32_t elapsedTime, bool right);
         Wire* getWire(int wire);
+        void beginTransmissionWrite();
+        void beginTransmissionRead();
         void sendData();
         void receiveData();
         SDL_Point getEdge(int edge);
         void pushBack(int buf, int val);
+        void pushBackTx(int buf, int val);
         std::vector<int>* getRxBuf(int buf);
+        std::vector<int>* getTxBuf(int buf);
+        void setLow(int buf);
+        int* clkCounter(int counter);
         SDL_Point readData(int wire);
+        void sendACK(int device);
+        void stopTransmission();
     private:
         SDL_Renderer *m_renderer;
         TTF_Font *m_font;
         Device *m_device1;
         Device *m_device2;
+        int m_clkCounter1 = 0;
+        int m_clkCounter2 = 0;
         int m_type;
         int m_sign;
         SDL_Point m_edge1;

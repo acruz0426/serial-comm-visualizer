@@ -54,6 +54,10 @@ bool send = false;
 bool receive = false;
 bool buttonPress = false;
 bool pause = false;
+bool ackSent = false;
+bool sendStop = false;
+bool transmissionSent = false;
+bool dataSent = false;
 
 int main(int argc, char *argv[])
 {
@@ -259,37 +263,114 @@ fprintf(stdout, "Initialization complete.\n");
                 {
                     if (serialComm->moveWaves(elapsedTime, changeSign) == 0)
                     {
-                        // Sending out data
-                        if (send && buttonPress/* && serialComm->getEdge(2).y == 1*/)
+                        // Increment clk counter for sending device
+                        if (serialComm->getEdge(2).y == 1)
                         {
-                            //prevEdge = 2;
-                            buttonPress = false;
-                            serialComm->sendData();
+                            if (send)
+                                *(serialComm->clkCounter(1)) += 1; 
+                            else if (receive)
+                                *(serialComm->clkCounter(2)) += 1;
                         }
-                        else if (receive && buttonPress && serialComm->getEdge(2).x == 1)
+                        // Increment clk counter for receiving device
+                        if (serialComm->getEdge(2).x == 1) // Read data going right
                         {
-                            buttonPress = false;
-                            serialComm->receiveData();
-                        }
-                    
-                        // Reading in data
-                        if (serialComm->getEdge(2).x == 1 && send) // Read data going right
-                        {
-                            serialComm->pushBack(1, serialComm->readData(1).y);
-                        }
-                        else if (serialComm->getEdge(2).y == 1 && receive)
-                        {
-                            serialComm->pushBack(1, serialComm->readData(1).x);
-                        }
-                        if (serialComm->getRxBuf(1)->size() == 8)
-                        {
-                            for (auto it = serialComm->getRxBuf(1)->begin(); it != serialComm->getRxBuf(1)->end(); it++)
+                            if (send)
                             {
-                                std::cout << *it;
+                                serialComm->pushBack(1, serialComm->readData(1).y);
+                                *(serialComm->clkCounter(2)) += 1;
                             }
-                            std::cout << std::endl;
-                            serialComm->getRxBuf(1)->clear();
+                            else if (receive)
+                            {
+                                serialComm->pushBackTx(1, serialComm->readData(1).x);
+                                *(serialComm->clkCounter(1)) += 1;
+                            }
                         }
+                        
+                        // Send data to slave device
+                        if (send)
+                        {
+                            // Begin the i2c transmission
+                            if (buttonPress)
+                            {
+                                std::cout << "Sending I2C Start Transmission" << std::endl;
+                                buttonPress = false;
+                                serialComm->beginTransmissionWrite();
+                                transmissionSent = true;
+                            }
+
+                            // Send Ack response when data is finished being sent
+                            if (((*(serialComm->clkCounter(2)) == 10 && transmissionSent) || (*(serialComm->clkCounter(2)) == 9 && dataSent)) && serialComm->getWire(1)->isEmpty())
+                            {
+                                std::cout << "Sending ACK." << std::endl;
+                                serialComm->sendACK(2);
+                                ackSent = true;
+                                *(serialComm->clkCounter(2)) = 0;
+                                if (transmissionSent)
+                                {
+                                    std::cout << "RxBuf size == 9" << std::endl;
+                                    for (auto it = (serialComm->getRxBuf(1)->begin()+1); it != (serialComm->getRxBuf(1)->end()-1); it++)
+                                    {
+                                        std::cout << *it;
+                                    }
+                                    std::cout << std::endl;
+                                    serialComm->getRxBuf(1)->clear();
+                                } 
+                                else if (dataSent){
+                                    for (auto it = (serialComm->getRxBuf(1)->begin()); it != (serialComm->getRxBuf(1)->end()-1); it++)
+                                    {
+                                        std::cout << *it;
+                                    }
+                                    std::cout << std::endl;
+                                    serialComm->getRxBuf(1)->clear();
+                                }
+                                transmissionSent = false;
+                                dataSent = false;
+                            }
+                            // Send Stop Transmission
+                            else if (ackSent && sendStop && serialComm->getWire(1)->isEmpty())
+                            {
+                                std::cout << "Sending Stop Transmission." << std::endl;
+                                serialComm->stopTransmission();
+                                ackSent = false;
+                                send = false;
+                                sendStop = false;
+                                transmissionSent = false;
+                                dataSent = false;
+                                *(serialComm->clkCounter(1)) = 0;
+                                *(serialComm->clkCounter(2)) = 0;
+                            }
+                            // Send data after Ack response
+                            else if (ackSent && serialComm->getWire(1)->isEmpty())
+                            {
+                                std::cout << "Sending data." << std::endl;
+                                serialComm->sendData();
+                                serialComm->getRxBuf(1)->clear();
+                                ackSent = false;
+                                sendStop = true;
+                                dataSent = true;
+                                *(serialComm->clkCounter(1)) = 0;
+                            }
+                            // Set clk signal low after sending i2c frame
+                            if (*(serialComm->clkCounter(1)) == 10 && transmissionSent)
+                            {
+                                serialComm->setLow(2);
+                            }
+                            else if (*(serialComm->clkCounter(1)) == 9 && dataSent)
+                            {
+                                serialComm->setLow(2);
+                            }
+                        }
+                        else if (receive)
+                        {
+                            if (receive && buttonPress && serialComm->getEdge(2).x == 1)
+                            {
+                                buttonPress = false;
+                                serialComm->beginTransmissionRead();
+                            }
+
+                        }
+                        
+                        
                         changeSign = false;
                     }
                 }
@@ -715,6 +796,10 @@ void toMainMenu()
     send = false;
     receive = false;
     buttonPress = false;
+    transmissionSent = false;
+    dataSent = false;
+    ackSent = false;
+    sendStop = false;
 }
 
 void testSend()

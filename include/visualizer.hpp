@@ -53,6 +53,7 @@ class Wire {
         void render();
         void setWire(SDL_Point port1, SDL_Point port2, bool isHigh);
         Wave* getWave();
+        bool isEmpty();
     private:
         SDL_Renderer *m_renderer;
         SDL_Color m_color;

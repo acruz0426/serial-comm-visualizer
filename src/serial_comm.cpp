@@ -19,7 +19,6 @@ Wave::Wave(SDL_Renderer *renderer, int start_x, int start_y, int end_x, int heig
     {
         //std::cout << "count: " << counter << " " << it->x << " " << it->y << std::endl;
         counter += 1;
-
     }
 }
 
@@ -58,14 +57,22 @@ SDL_Point Wave::moveWave(uint32_t elapsedTime, float speed, bool isCLK, bool isH
             counter += 1;
             if (it->x >= m_end_x && speed > 0)
             {
-                if (edge == -1)
+                if (edge == -1 && it+1 != m_points.end())
+                {
                     edge = (it->y - (it+1)->y < 0) ? 0 : 1;
+                    if (it->y == (it+1)->y)
+                        edge = -1;
+                }
                 it = m_points.erase(it);
             }
             else if (it->x <= m_start_point.x && speed < 0)
             {
                 if (edge == -1)
+                {
+                    if (it->y == (it+1)->y)
+                        edge = -1;
                     edge = ((it+1)->y - it->y) < 0 ? 0 : 1;
+                }
                 it = m_points.erase(it);
             }
             else
@@ -109,9 +116,7 @@ SDL_Point Wave::moveWave(uint32_t elapsedTime, float speed, bool isCLK, bool isH
                 if (isCLK)
                     m_buffer->insert(m_buffer->begin(), !m_buffer->back());
                 m_buffer->pop_back(); //remove bit from buffer
-
             }
-
             // If there is nothing in the buffer
             else
             {
@@ -136,7 +141,6 @@ SDL_Point Wave::moveWave(uint32_t elapsedTime, float speed, bool isCLK, bool isH
                         m_points.insert(m_points.begin(), {m_start_point.x, m_start_point.y});
                         edge2 = 1;
                     }
-
                     else
                         m_points.insert(m_points.begin(), {m_start_point.x, m_start_point.y});
                 }
@@ -203,7 +207,6 @@ SDL_Point Wave::moveWave(uint32_t elapsedTime, float speed, bool isCLK, bool isH
                         m_points.insert(m_points.end(), {m_end_x, m_start_point.y});
                 }
             }
-
         }
         m_points.insert(m_points.begin(), {m_start_point.x, m_points.begin()->y});
         m_points.push_back({m_end_x, (m_points.end()-1)->y}); // check case for this
@@ -223,6 +226,7 @@ void Wave::setWave(int x1, int y1, int x2, bool isHigh)
     m_start_point.y = y1;
     m_end_x = x2;
     m_points.clear();
+    m_isHigh = isHigh;
     if (isHigh)
     {
         m_points.push_back({x1, y1-m_height});
@@ -259,6 +263,12 @@ int Wave::getLow()
 {
     return m_start_point.y;
 }
+
+bool Wave::isHigh()
+{
+    return m_isHigh;
+}
+
 ///////////////////////////////////////////////////
 ///             Serial Comm Class               /// 
 ///////////////////////////////////////////////////
@@ -317,6 +327,8 @@ void SerialComm::setType(int type)
             m_buf2.clear();
             m_buf3.clear();
             m_buf4.clear();
+            m_clkCounter1 = 0;
+            m_clkCounter2 = 0;
             break;
         case 1: // UART
             m_device1->setType(type);
@@ -469,14 +481,14 @@ Wire* SerialComm::getWire(int wire)
     }
 }
 
-void SerialComm::sendData()
+void SerialComm::beginTransmissionWrite()
 {
     m_sign = 1;
     switch(m_type)
     {
         case 0:
-            m_buf1 = {0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0};
-            m_buf2 = {0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0};
+            m_buf1 = {0, 0, 0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0};
+            m_buf2 = {0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1};
             break;
         case 1:
             m_buf1 = {1};
@@ -490,6 +502,39 @@ void SerialComm::sendData()
             break;
     }
 }
+
+void SerialComm::beginTransmissionRead()
+{
+    m_sign = 1;
+    switch(m_type)
+    {
+        case 0:
+            m_buf1 = {1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0};
+            m_buf2 = {0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1};
+            break;
+        case 1:
+            m_buf1 = {1};
+            break;
+        case 2:
+            m_buf2 = {1, 1};
+            break;
+        case 3:
+            m_buf1 = {0};
+            m_buf2 = {1};
+            break;
+    }
+}
+void SerialComm::sendData()
+{
+    m_sign = 1;
+    m_clkCounter1 = 0;
+    m_clkCounter2 = 0;
+    m_buf1 = {0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0};
+    m_buf2 = {0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0};  
+}
+
+
+
 
 void SerialComm::receiveData()
 {
@@ -546,6 +591,26 @@ void SerialComm::pushBack(int buf, int val)
     }
 }
 
+void SerialComm::pushBackTx(int buf, int val)
+{
+    switch (buf)
+    {
+        case 1:
+            m_buf1.push_back(val);
+            break;
+        case 2:
+            m_buf2.push_back(val);
+            break;
+        case 3:
+            m_buf3.push_back(val);
+            break;
+        case 4:
+            m_buf4.push_back(val);
+            break;
+
+    }
+}
+
 std::vector<int>* SerialComm::getRxBuf(int buf)
 {
     switch (buf)
@@ -559,6 +624,73 @@ std::vector<int>* SerialComm::getRxBuf(int buf)
         case 4:
             return &m_rx_buf4;
     }
+}
+
+std::vector<int>* SerialComm::getTxBuf(int buf)
+{
+    switch (buf)
+    {
+        case 1:
+            return &m_buf1;
+        case 2:
+            return &m_buf2;
+        case 3:
+            return &m_buf3;
+        case 4:
+            return &m_buf4;
+    }
+}
+
+void SerialComm::setLow(int buf)
+{
+    switch (buf)
+    {
+        case 1:
+            m_buf1.push_back(0);
+            break;
+        case 2:
+            m_buf2.push_back(0);
+            break;
+        case 3:
+            m_buf3.push_back(0);
+            break;
+        case 4:
+            m_buf4.push_back(0);
+            break;
+    }
+}
+
+int* SerialComm::clkCounter(int counter)
+{
+    switch (counter)
+    {
+        case 1:
+            return &m_clkCounter1;
+        case 2:
+            return &m_clkCounter2;
+    }
+}
+
+void SerialComm::sendACK(int device)
+{
+    switch (device)
+    {
+        case 1:
+            m_sign = 1;
+            m_buf1 = {0, 0};
+            break;
+        case 2:
+            m_sign = -1;
+            m_buf1 = {0, 0};
+            break;
+    }
+}
+
+void SerialComm::stopTransmission()
+{
+    m_sign = 1;
+    m_buf1 = {1, 0, 0, 0};
+    m_buf2 = {1, 0};
 }
 
 SDL_Point SerialComm::readData(int wire)

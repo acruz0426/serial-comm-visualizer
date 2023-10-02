@@ -343,3 +343,16 @@ Wave* Wire::getWave()
 {
     return m_signal;
 }
+
+bool Wire::isEmpty()
+{
+    std::vector<SDL_Point> *points = m_signal->getPoints();
+    for (auto it = (points->begin()+1); it != points->end(); it++) 
+    {
+        if (it->y != m_signal->getY() && !m_signal->isHigh())
+            return false;
+        else if (it->y != m_signal->getHigh() && m_signal->isHigh())
+            return false;
+    }
+    return true;
+}
